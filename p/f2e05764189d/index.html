@@ -1,88 +1,106 @@
 <!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ivoirtech-frames — programme du service</title>
+<title>ivoirtech-frames — programme</title><meta name="robots" content="noindex">
 <style>
-:root{--bg:#f4f6f8;--card:#fff;--ink:#14202e;--muted:#56627a;--code:#0f1720;--codeink:#e6edf3;--accent:#e07a1f}
-*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);padding:16px}
-main{max-width:960px;margin:0 auto}header{background:var(--card);border-radius:14px;padding:24px;margin-bottom:16px;border-top:4px solid var(--accent)}
-h1{margin:0 0 6px;font-size:1.5rem}p{margin:4px 0;color:var(--muted);line-height:1.5}
-ul{margin:12px 0 0;padding-left:20px;color:var(--ink);line-height:1.7}code{background:#eef1f4;padding:1px 6px;border-radius:5px;font-size:.9em}
-pre{background:var(--code);color:var(--codeink);border-radius:14px;padding:20px;overflow-x:auto;font-size:13px;line-height:1.55;margin:0}
-.meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.tag{background:#fff4ea;color:#9a4d0b;border-radius:999px;padding:4px 12px;font-size:.85rem}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,sans-serif;background:#f4f6f8;color:#14202e;padding:16px}
+main{max-width:960px;margin:0 auto}header{background:#fff;border-radius:14px;padding:24px;margin-bottom:16px;border-top:4px solid #e07a1f}
+h1{margin:0 0 6px;font-size:1.5rem}h2{font-size:1.05rem;margin:18px 0 6px}p{margin:4px 0;color:#56627a;line-height:1.55}
+ol{margin:8px 0 0;padding-left:20px;line-height:1.7}a{color:#9a4d0b}
+pre{background:#0f1720;color:#e6edf3;border-radius:14px;padding:20px;overflow-x:auto;font-size:13px;line-height:1.55;margin:0}
+.tag{display:inline-block;background:#fff4ea;color:#9a4d0b;border-radius:999px;padding:4px 12px;font-size:.85rem;margin:10px 6px 0 0}
 </style></head><body><main>
 <header><h1>Programme du service de pages ivoirTech</h1>
-<p>Code complet du service <strong>ivoirtech-frames</strong>, hébergé sur le compte Render ivoire-tech. Un seul fichier, Node.js standard, aucune dépendance, aucune clé dedans.</p>
-<ul><li><code>POST /api/frames</code> — publier une page, rend un lien partageable</li>
-<li><code>PUT /api/frames/&#123;id&#125;</code> — modifier une page sans changer son lien</li>
-<li><code>DELETE /api/frames/&#123;id&#125;</code> — supprimer une page</li>
-<li><code>GET /share/frame/&#123;id&#125;</code> — lecture publique de la page</li></ul>
-<div class="meta"><span class="tag">Version 1 — 10/11/2026</span><span class="tag">Formule gratuite Render</span><span class="tag">67 lignes</span></div>
+<p>Les pages ivoirTech sont un <strong>site statique</strong> hébergé gratuitement sur Render, à l'adresse <strong>ivoirtech-frames.onrender.com</strong>. Un site statique ne s'endort jamais : les pages publiées restent en ligne de façon permanente.</p>
+<h2>Comment une page est publiée</h2>
+<ol><li>La page HTML est ajoutée au dépôt GitHub <a href="https://github.com/Yelema-Tech/ivoire-tech-frame">Yelema-Tech/ivoire-tech-frame</a>, dans <code>p/&lt;identifiant&gt;/index.html</code>.</li>
+<li>Render remet le site en ligne avec la nouvelle page (environ une minute).</li>
+<li>Le lien est de la forme <code>ivoirtech-frames.onrender.com/p/&lt;identifiant&gt;/</code>. Modifier une page garde le même lien.</li></ol>
+<span class="tag">Version 2 — 10/11/2026</span><span class="tag">Gratuit et permanent</span>
 </header>
-<pre><code>// Service de pages ivoirTech — publie des pages HTML autonomes et rend un lien partageable.
-// Même contrat que Mstudio Frames : POST/PUT/DELETE /api/frames, lecture /share/frame/{id}.
-// Aucune dépendance : Node standard. Les pages vivent sur le disque persistant (DATA_DIR).
-const http = require(&quot;http&quot;), fs = require(&quot;fs&quot;), path = require(&quot;path&quot;), crypto = require(&quot;crypto&quot;);
+<pre><code>#!/usr/bin/env python3
+&quot;&quot;&quot;Publie une page HTML autonome sur le site statique ivoirTech (ivoirtech-frames.onrender.com),
+la remplace sans changer son lien, ou la supprime. Réservé au groupe Telegram ivoirTech.
 
-const PORT = process.env.PORT || 10000;
-const DATA = process.env.DATA_DIR || &quot;/data/pages&quot;;
-const KEY = process.env.FRAMES_API_KEY || &quot;&quot;;
-const BASE = (process.env.PUBLIC_URL || &quot;&quot;).replace(/\/$/, &quot;&quot;);
-const MAX = 15 * 1024 * 1024;
-fs.mkdirSync(DATA, { recursive: true });
+Chaîne : la page est écrite dans le dépôt GitHub public Yelema-Tech/ivoire-tech-frame
+(../github-ivoirtech/depot.py), puis Render redéploie le site statique (render_api.py deployer).
+Les pages sont permanentes : un site statique gratuit ne s&#x27;endort pas et ne perd rien.
 
-const fichier = id =&gt; path.join(DATA, id.replace(/[^a-f0-9-]/g, &quot;&quot;) + &quot;.json&quot;);
-const lire = id =&gt; { try { return JSON.parse(fs.readFileSync(fichier(id), &quot;utf8&quot;)); } catch { return null; } };
-const ecrire = (id, f) =&gt; { const t = fichier(id) + &quot;.tmp&quot;; fs.writeFileSync(t, JSON.stringify(f)); fs.renameSync(t, fichier(id)); };
-const json = (res, code, obj) =&gt; { res.writeHead(code, { &quot;Content-Type&quot;: &quot;application/json&quot; }); res.end(JSON.stringify(obj)); };
-const autorise = req =&gt; {
-  const k = req.headers[&quot;x-api-key&quot;] || &quot;&quot;;
-  return KEY &amp;&amp; k.length === KEY.length &amp;&amp; crypto.timingSafeEqual(Buffer.from(k), Buffer.from(KEY));
-};
-const corps = req =&gt; new Promise((ok, ko) =&gt; {
-  let n = 0, parts = [];
-  req.on(&quot;data&quot;, c =&gt; { n += c.length; if (n &gt; MAX) { ko(new Error(&quot;trop gros&quot;)); req.destroy(); } else parts.push(c); });
-  req.on(&quot;end&quot;, () =&gt; { try { ok(JSON.parse(Buffer.concat(parts).toString() || &quot;{}&quot;)); } catch (e) { ko(e); } });
-  req.on(&quot;error&quot;, ko);
-});
-const lien = (req, id) =&gt; `${BASE || &quot;https://&quot; + req.headers.host}/share/frame/${id}`;
+Usage :
+  publier-page.py page.html --titre &quot;…&quot; [--remplacer ID]
+  publier-page.py --supprimer ID
+Sortie (stdout, JSON) : {&quot;frameId&quot;: &quot;…&quot;, &quot;shareUrl&quot;: &quot;…&quot;, &quot;http&quot;: 200}
+&quot;&quot;&quot;
+import argparse, json, os, subprocess, sys, time, urllib.request, urllib.error, uuid
 
-http.createServer(async (req, res) =&gt; {
-  const url = new URL(req.url, &quot;http://x&quot;);
-  const m = url.pathname.match(/^\/api\/frames(?:\/([a-f0-9-]+))?\/?$/);
-  try {
-    if (req.method === &quot;GET&quot; &amp;&amp; url.pathname === &quot;/&quot;) return json(res, 200, { service: &quot;ivoirtech-frames&quot;, ok: true });
-    const s = url.pathname.match(/^\/share\/frame\/([a-f0-9-]+)\/?$/);
-    if (req.method === &quot;GET&quot; &amp;&amp; s) {
-      const f = lire(s[1]);
-      if (!f || !f.isPublic) { res.writeHead(404, { &quot;Content-Type&quot;: &quot;text/plain; charset=utf-8&quot; }); return res.end(&quot;Page introuvable&quot;); }
-      res.writeHead(200, { &quot;Content-Type&quot;: &quot;text/html; charset=utf-8&quot;, &quot;X-Content-Type-Options&quot;: &quot;nosniff&quot;,
-                           &quot;Cache-Control&quot;: &quot;no-cache&quot;, &quot;X-Robots-Tag&quot;: &quot;noindex&quot; });
-      return res.end(f.html);
-    }
-    if (m) {
-      if (!autorise(req)) return json(res, 401, { error: &quot;clé manquante ou invalide&quot; });
-      const id = m[1];
-      if (req.method === &quot;POST&quot; &amp;&amp; !id) {
-        const b = await corps(req);
-        if (typeof b.html !== &quot;string&quot; || !b.html) return json(res, 400, { error: &quot;html requis&quot; });
-        const nid = crypto.randomUUID(), now = new Date().toISOString();
-        ecrire(nid, { title: b.title || &quot;&quot;, description: b.description || &quot;&quot;, html: b.html,
-                      isPublic: b.isPublic !== false, createdAt: now, updatedAt: now });
-        return json(res, 201, { frameId: nid, shareUrl: lien(req, nid) });
-      }
-      if (id &amp;&amp; (req.method === &quot;GET&quot; || req.method === &quot;PUT&quot; || req.method === &quot;DELETE&quot;)) {
-        const f = lire(id);
-        if (!f) return json(res, 404, { error: &quot;introuvable&quot; });
-        if (req.method === &quot;GET&quot;) return json(res, 200, { frameId: id, shareUrl: lien(req, id), title: f.title,
-                                                          isPublic: f.isPublic, createdAt: f.createdAt, updatedAt: f.updatedAt });
-        if (req.method === &quot;DELETE&quot;) { fs.unlinkSync(fichier(id)); return json(res, 200, { deleted: id }); }
-        const b = await corps(req);
-        for (const k of [&quot;title&quot;, &quot;description&quot;, &quot;html&quot;, &quot;isPublic&quot;]) if (b[k] !== undefined) f[k] = b[k];
-        f.updatedAt = new Date().toISOString(); ecrire(id, f);
-        return json(res, 200, { frameId: id, shareUrl: lien(req, id) });
-      }
-    }
-    json(res, 404, { error: &quot;introuvable&quot; });
-  } catch (e) { json(res, 400, { error: String(e.message || e) }); }
-}).listen(PORT, () =&gt; console.log(&quot;ivoirtech-frames prêt sur&quot;, PORT));
+DOSSIER = os.path.dirname(os.path.abspath(__file__))
+DEPOT = os.path.join(DOSSIER, &quot;..&quot;, &quot;github-ivoirtech&quot;, &quot;depot.py&quot;)
+URL = &quot;https://ivoirtech-frames.onrender.com&quot;
+SERVICE = &quot;srv-dbplbuhsrm7s73apsde0&quot;  # site statique ivoirtech-frames
+
+
+def echec(message):
+    print(f&quot;erreur publication ivoirTech : {message}&quot;, file=sys.stderr)
+    print(f&quot;Vérifie si l&#x27;intégration est cassée : python3 {DOSSIER}/check.py &quot;
+          f&quot;et python3 {os.path.dirname(DEPOT)}/check.py&quot;, file=sys.stderr)
+    print(&quot;Cassée → préviens l&#x27;utilisateur (règle 5). &quot;
+          &quot;Pas cassée → dis-lui que la demande n&#x27;a pas abouti, et pourquoi.&quot;, file=sys.stderr)
+    sys.exit(1)
+
+
+def lancer(*args):
+    r = subprocess.run([sys.executable, *args], capture_output=True, text=True)
+    if r.returncode:
+        echec(r.stderr.strip().splitlines()[0] if r.stderr.strip() else &quot;échec sans message&quot;)
+    return json.loads(r.stdout)
+
+
+def deployer_et_attendre():
+    dep = lancer(os.path.join(DOSSIER, &quot;render_api.py&quot;), &quot;deployer&quot;, SERVICE)
+    for _ in range(40):
+        time.sleep(5)
+        etat = lancer(os.path.join(DOSSIER, &quot;render_api.py&quot;), &quot;etat&quot;, SERVICE)
+        if etat.get(&quot;id&quot;) == dep[&quot;deployId&quot;] and etat.get(&quot;status&quot;) == &quot;live&quot;:
+            return
+        if etat.get(&quot;id&quot;) == dep[&quot;deployId&quot;] and etat.get(&quot;status&quot;) in (&quot;build_failed&quot;, &quot;update_failed&quot;, &quot;canceled&quot;):
+            echec(f&quot;déploiement Render {etat.get(&#x27;status&#x27;)}&quot;)
+    echec(&quot;déploiement Render toujours en cours après 200 s&quot;)
+
+
+def code(lien):
+    for _ in range(6):  # le CDN peut servir l&#x27;ancienne version quelques secondes
+        try:
+            with urllib.request.urlopen(lien, timeout=30) as r:
+                return r.status
+        except urllib.error.HTTPError as e:
+            if e.code != 404:
+                return e.code
+        except Exception:
+            pass
+        time.sleep(5)
+    return 404
+
+
+def main():
+    a = argparse.ArgumentParser()
+    a.add_argument(&quot;page&quot;, nargs=&quot;?&quot;)
+    a.add_argument(&quot;--titre&quot;, default=&quot;&quot;)
+    a.add_argument(&quot;--remplacer&quot;, default=&quot;&quot;, metavar=&quot;ID&quot;)
+    a.add_argument(&quot;--supprimer&quot;, default=&quot;&quot;, metavar=&quot;ID&quot;)
+    o = a.parse_args()
+    if o.supprimer:
+        lancer(DEPOT, &quot;supprimer&quot;, f&quot;p/{o.supprimer}/index.html&quot;)
+        deployer_et_attendre()
+        print(json.dumps({&quot;supprime&quot;: o.supprimer}))
+        return
+    if not o.page or not o.titre:
+        a.error(&quot;page et --titre requis&quot;)
+    ident = o.remplacer or uuid.uuid4().hex[:12]
+    lancer(DEPOT, &quot;ecrire&quot;, f&quot;p/{ident}/index.html&quot;, o.page, &quot;--message&quot;, f&quot;page : {o.titre}&quot;)
+    deployer_et_attendre()
+    lien = f&quot;{URL}/p/{ident}/&quot;
+    print(json.dumps({&quot;frameId&quot;: ident, &quot;shareUrl&quot;: lien, &quot;http&quot;: code(lien)}))
+
+
+if __name__ == &quot;__main__&quot;:
+    main()
 </code></pre>
 </main></body></html>
